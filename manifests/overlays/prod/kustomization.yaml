@@ -1,0 +1,17 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base
+
+# This is the ONE place image tags are bumped. CI (or you, manually, until
+# the Stretch CI goal is done) edits the `newTag` values below and pushes to
+# main — Argo CD picks up the commit and rolls out the new SHA. No other file
+# should ever reference `:latest`.
+images:
+  - name: ghcr.io/ts-a-devops/taskapp-backend
+    newTag: CHANGE_ME_PINNED_SHA
+  - name: ghcr.io/ts-a-devops/taskapp-frontend
+    newTag: CHANGE_ME_PINNED_SHA
+
+namespace: taskapp

@@ -1,0 +1,10 @@
+# Copy this file to terraform.tfvars and fill in your values.
+# terraform.tfvars is gitignored — never commit real values.
+
+admin_ip_cidr  = "203.0.113.4/32" # curl -s ifconfig.me, then add /32
+ssh_public_key = "ssh-ed25519 AAAA...your-key... you@laptop"
+cluster_name   = "phoenix"
+worker_count   = 2
+
+# hcloud_token is NOT set here — export it instead:
+#   export TF_VAR_hcloud_token="your-hetzner-api-token"

@@ -1,0 +1,34 @@
+# This is the ONLY manifest you ever apply by hand with kubectl. Once it's
+# live, Argo CD watches manifests/overlays/prod in this repo and reconciles
+# the cluster to match every commit automatically — that's what "GitOps owns
+# the cluster" means for this capstone. From here on: git commit -> auto-sync
+# -> live change, never `kubectl apply` on the app itself again.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: taskapp
+  namespace: argocd
+spec:
+  project: default
+
+  source:
+    repoURL: https://github.com/CHANGE_ME/capstone-phoenix.git
+    targetRevision: main
+    path: manifests/overlays/prod
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: taskapp
+
+  syncPolicy:
+    automated:
+      prune: true # delete resources removed from git
+      selfHeal: true # revert manual kubectl drift automatically
+    syncOptions:
+      - CreateNamespace=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 3m

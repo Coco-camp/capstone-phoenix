@@ -1,0 +1,18 @@
+# cert-manager itself is installed once via Helm (see docs/RUNBOOK.md) — it's
+# platform tooling, not app state — but the ClusterIssuer that tells it which
+# ACME account/challenge to use IS app-relevant config, so it's GitOps-owned
+# here alongside the Ingress that references it.
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-prod
+spec:
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory
+    email: CHANGE_ME@example.com
+    privateKeySecretRef:
+      name: letsencrypt-prod-account-key
+    solvers:
+      - http01:
+          ingress:
+            ingressClassName: traefik

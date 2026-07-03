@@ -1,0 +1,8 @@
+Drop screenshots/logs here as you complete each milestone:
+- nodes-ready.png (kubectl get nodes, multi-node Ready)
+- pods-spread.png (kubectl get pods -o wide showing spread across nodes)
+- tls-valid.png (curl -vI or SSL Labs report)
+- data-survives-pod-kill.txt (before/after kubectl exec + delete pod)
+- zero-downtime-rollout.log (hey/vegeta output during a rollout, unbroken 200s)
+- hpa-scaling.png (kubectl get hpa -w during a load test)
+- argocd-synced.png (Argo CD UI, Synced + Healthy)

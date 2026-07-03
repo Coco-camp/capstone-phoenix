@@ -1,33 +1,37 @@
-# --- Secrets & state: NEVER commit. The grader runs `git log -p` looking for these. ---
+# Terraform
+**/.terraform/*
 *.tfstate
 *.tfstate.*
-.terraform/
 *.tfvars
-!*.tfvars.example
+!terraform.tfvars.example
 crash.log
+crash.*.log
+.terraform.lock.hcl
 
-# kubeconfig & cluster joins
-kubeconfig
-*kubeconfig*
-k3s.yaml
-node-token
-*.token
+# Ansible
+infra/ansible/inventory/hosts.ini
+*.retry
+kubeconfig*
+*.kubeconfig
 
-# secrets / env
+# Secrets / env
 .env
 .env.*
-!.env.example
-*secret*.yaml
-!*secret*.example.yaml
 *.pem
 *.key
-id_rsa*
+!**/templates/*.key.j2
 
-# argo / helm local
-charts/*.tgz
+# SSH
+id_rsa
+id_ed25519
+*.pub.bak
 
-# os / editor
+# OS / editor
 .DS_Store
 *.swp
 .idea/
 .vscode/
+
+# node/temp
+node_modules/
+*.log

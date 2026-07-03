@@ -1,0 +1,49 @@
+# Solves the multi-replica migration race: at 2+ backend replicas, running
+# `alembic upgrade head` in each pod's entrypoint means both race on the same
+# migration lock/table. Instead migrations run exactly once, here, as a Job —
+# backend Deployment pods assume the schema is already current and never run
+# migrations themselves. Argo CD's PreSync hook re-runs this Job (a fresh Job
+# object, since Jobs are immutable) before every sync that changes the image.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: taskapp-migrate
+  namespace: taskapp
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+spec:
+  backoffLimit: 3
+  template:
+    spec:
+      restartPolicy: Never
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: migrate
+          image: ghcr.io/ts-a-devops/taskapp-backend:CHANGE_ME_PINNED_SHA
+          command: ["alembic", "upgrade", "head"]
+          envFrom:
+            - configMapRef:
+                name: taskapp-config
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: taskapp-secret
+                  key: DATABASE_URL
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]

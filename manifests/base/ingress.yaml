@@ -1,0 +1,36 @@
+# Same-origin routing: taskapp.<domain> serves the frontend at "/" and the
+# backend API at "/api" on the SAME host. Chosen over separate api.<domain>
+# because the React app already calls a relative /api base path (no CORS
+# config needed), and it's one cert / one Ingress object to reason about.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: taskapp
+  namespace: taskapp
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+spec:
+  ingressClassName: traefik
+  tls:
+    - hosts:
+        - CHANGE_ME.taskapp.example.com
+      secretName: taskapp-tls
+  rules:
+    - host: CHANGE_ME.taskapp.example.com
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 80
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  number: 80

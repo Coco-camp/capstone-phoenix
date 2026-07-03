@@ -1,0 +1,55 @@
+---
+- name: Check if k3s is already installed
+  ansible.builtin.stat:
+    path: /usr/local/bin/k3s
+  register: k3s_binary
+
+- name: Install k3s server (control-plane)
+  ansible.builtin.shell: >
+    curl -sfL https://get.k3s.io |
+    INSTALL_K3S_VERSION={{ k3s_version }}
+    K3S_KUBECONFIG_MODE="644"
+    sh -s - server
+    --node-ip={{ private_ip }}
+    --advertise-address={{ private_ip }}
+    --tls-san={{ ansible_host }}
+    --flannel-iface=eth1
+    --write-kubeconfig-mode=644
+    --disable=traefik=false
+  args:
+    creates: /usr/local/bin/k3s
+  when: not k3s_binary.stat.exists
+
+- name: Wait for node-token to exist
+  ansible.builtin.wait_for:
+    path: /var/lib/rancher/k3s/server/node-token
+    timeout: 60
+
+- name: Read the node token
+  ansible.builtin.slurp:
+    src: /var/lib/rancher/k3s/server/node-token
+  register: node_token_raw
+
+- name: Store node token as a fact for workers to use
+  ansible.builtin.set_fact:
+    k3s_node_token: "{{ node_token_raw['content'] | b64decode | trim }}"
+
+- name: Fetch kubeconfig to control node
+  ansible.builtin.fetch:
+    src: /etc/rancher/k3s/k3s.yaml
+    dest: /tmp/k3s.yaml
+    flat: true
+
+- name: Rewrite kubeconfig server address to public IP, save locally
+  ansible.builtin.shell: >
+    sed 's/127.0.0.1/{{ ansible_host }}/' /tmp/k3s.yaml >
+    {{ playbook_dir }}/../../kubeconfig
+  delegate_to: localhost
+  become: false
+
+- name: Restrict local kubeconfig permissions
+  ansible.builtin.file:
+    path: "{{ playbook_dir }}/../../kubeconfig"
+    mode: "0600"
+  delegate_to: localhost
+  become: false

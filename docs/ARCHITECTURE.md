@@ -1,47 +1,86 @@
-# Architecture (fill this in)
+# Architecture — Phoenix
 
-## 1. Topology diagram
-> Draw it (ASCII, Excalidraw, draw.io — anything). Show: your nodes, where each TaskApp
-> tier runs, the ingress controller, and the request path.
+## 1. Node topology
 
 ```
-[ replace with your diagram ]
-
-  Internet ──DNS──▶ taskapp.<you>.dev / api.<you>.dev
-        │
-        ▼
-  ingress controller (node: ____)  ──TLS terminated by cert-manager──┐
-        │                                                            │
-        ▼                                                            ▼
-  frontend Service ──▶ frontend Pods (nodes: __, __)        backend Service ──▶ backend Pods (nodes: __, __)
-                              │  /api proxy                              │
-                              └────────────────────────────────────────▶│
-                                                                         ▼
-                                                          postgres Service ──▶ postgres-0 (PVC on node __)
+                                Internet
+                                   │
+                        ┌──────────┴──────────┐
+                        │   ports 80/443 only  │
+                        │  (Hetzner firewall)  │
+                        └──────────┬──────────┘
+                                   │
+                     ┌─────────────┴─────────────┐
+                     │      cp-1 (control-plane)  │
+                     │  k3s server + Traefik       │
+                     │  + cert-manager + Argo CD   │
+                     │  10.10.1.10 (private)       │
+                     └─────────────┬─────────────┘
+                     private network 10.10.0.0/16
+              ┌────────────────────┼────────────────────┐
+              │                                          │
+   ┌──────────┴──────────┐                   ┌───────────┴──────────┐
+   │  worker-1            │                   │  worker-2             │
+   │  10.10.1.10+1         │                   │  10.10.1.10+2          │
+   │  frontend, backend    │                   │  frontend, backend     │
+   │  replicas (spread)    │                   │  replicas (spread)     │
+   │  postgres (pinned)    │                   │                        │
+   └───────────────────────┘                   └────────────────────────┘
 ```
 
-## 2. Node & network
-- Nodes (role, size, AZ/region): …
-- CIDR / subnet choices and why: …
-- Firewall: what's open to the world, what's internal, and why `6443` is closed: …
+3 nodes: 1 control-plane (k3s server, also runs Traefik ingress + cert-manager
++ Argo CD — all control-plane/platform tooling, not app workloads) and 2
+workers, which is where `frontend`, `backend`, and `postgres` actually run.
+All three sit on a private Hetzner network (`10.10.0.0/16`); only 22/80/443
+are reachable from the public internet (see `infra/terraform/modules/firewall`).
 
-## 3. Request flow (one paragraph)
-> DNS → ingress → TLS → frontend → /api → backend → Postgres. Be specific about names/ports.
+## 2. Request flow
 
-## 4. The single-server assumptions you fixed  ← graders look here
-> For each, name the assumption that was safe on one box but breaks on a cluster, and the
-> K8s mechanism you used. Minimum: migrations, persistent storage, traffic routing,
-> self-healing, zero-downtime deploys, secrets.
+```
+Browser
+  → DNS: taskapp.<domain> → cp-1 public IP
+  → Hetzner firewall (443 open)
+  → Traefik (Ingress controller, runs as a DaemonSet-ish workload, TLS
+    terminated here using the taskapp-tls Secret cert-manager issued)
+  → path /            → frontend Service → frontend Pod (nginx, static build)
+  → path /api/*       → backend Service  → backend Pod (Flask)
+  → backend           → postgres Service (headless, ClusterIP: None)
+                       → postgres-0 Pod (StatefulSet, PVC pinned to one node)
+```
 
-| Single-server assumption | Why it breaks at scale | How you fixed it |
-|---|---|---|
-| migrate-on-boot in the entrypoint | 2+ replicas race on `alembic upgrade head` | … |
-| named volume on the host | Pods reschedule across nodes | … |
-| `ports:` published on the host | many Pods, many nodes, one front door needed | … |
-| … | … | … |
+Same-origin routing (`taskapp.<domain>/api`) was chosen over a separate
+`api.<domain>` subdomain so the React app's existing relative `/api` calls
+need no CORS configuration and there's one cert/Ingress object instead of two.
 
-## 5. Choices & trade-offs
-- Raw YAML vs Helm vs kustomize — why: …
-- ingress-nginx vs k3s Traefik — why: …
-- CNI / NetworkPolicy enforcement — what and why: …
-- Secrets approach (out-of-band vs Sealed/External Secrets) — why: …
+## 3. What each Core requirement fixes vs. the single-server (Portainer) setup
+
+| Requirement | Single-server assumption it breaks |
+|---|---|
+| Namespace + ConfigMap/Secret split | Portainer's `.env` per-stack assumed one host; a namespace is the multi-tenant unit K8s actually schedules against |
+| Postgres StatefulSet + PVC | Docker volume was pinned to the one host by definition; a PVC + storage class makes "which node has the data" an explicit, provable binding instead of an accident |
+| 2+ replicas, topology spread | One container = one point of failure. Spread constraints stop both replicas from landing on the same node, which would silently recreate the single-server failure mode inside a "multi-node" cluster |
+| Migration Job, not entrypoint | Fine at 1 replica; at 2+ replicas booting concurrently, in-entrypoint migrations race on `alembic upgrade head` — a Job runs it exactly once, before the replicas start |
+| Liveness/readiness/startup probes | Docker's restart-on-crash has no concept of "unhealthy but still running" (e.g. DB pool exhausted); probes let K8s pull a pod from the Service without killing it |
+| Requests/limits | No scheduler existed before — K8s needs requests to bin-pack pods across 3 nodes sanely, and limits to stop one runaway container starving its node-mates |
+| RollingUpdate maxUnavailable:0 | Portainer redeploy = brief downtime by design; this guarantees old replicas don't terminate until new ones pass readiness |
+| Ingress + cert-manager TLS | Previously one nginx container held the cert file; now cert-manager auto-renews and re-issues without touching a filesystem by hand |
+| Pinned tags | `:latest` on one server was "whatever I last pushed" — meaningless (and dangerous) once GitOps + multiple replicas can pull the tag independently at different times |
+
+## 4. NetworkPolicy model
+
+Default-deny in `taskapp` namespace, then explicit allows:
+`frontend/backend` ← Traefik (kube-system) · `backend` ← `frontend` + the
+migration Job · `postgres` ← `backend` + the migration Job only. k3s's default
+CNI (Flannel) does not enforce `NetworkPolicy` — see `docs/RUNBOOK.md` for the
+Calico swap that makes these policies real rather than decorative YAML.
+
+## 5. Trade-offs (worth stating up front)
+
+- **Single control-plane, no HA etcd.** README explicitly scopes this out —
+  the assignment is about Kubernetes itself, not etcd quorum.
+- **Postgres is a single replica pinned to whichever node its PVC first
+  binds to** (k3s's default `local-path` storage class is node-local, not
+  networked). A real HA Postgres (Patroni, or a managed DB) is listed as a
+  Stretch item precisely because it's a genuinely different, harder problem.
+- **Secrets are applied manually**, not through GitOps, until Sealed Secrets
+  (Stretch) is done — see `manifests/base/secret.example.yaml`.
