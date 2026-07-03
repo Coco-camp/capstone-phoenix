@@ -31,8 +31,13 @@
 3 nodes: 1 control-plane (k3s server, also runs Traefik ingress + cert-manager
 + Argo CD — all control-plane/platform tooling, not app workloads) and 2
 workers, which is where `frontend`, `backend`, and `postgres` actually run.
-All three sit on a private Hetzner network (`10.10.0.0/16`); only 22/80/443
+All three sit on a private GCP VPC subnet (`10.10.1.0/24`); only 22/80/443
 are reachable from the public internet (see `infra/terraform/modules/firewall`).
+Provisioned on GCP (not the originally-planned Hetzner) specifically because
+the `taskapp-backend`/`taskapp-frontend` images are amd64-only — GCP's free
+trial credit runs amd64-native instances at $0 out-of-pocket cost for the
+capstone window, vs. a free ARM tier that would have required rebuilding
+both images. See `docs/COST.md` for the full trade-off.
 
 ## 2. Request flow
 
@@ -80,7 +85,9 @@ Calico swap that makes these policies real rather than decorative YAML.
   the assignment is about Kubernetes itself, not etcd quorum.
 - **Postgres is a single replica pinned to whichever node its PVC first
   binds to** (k3s's default `local-path` storage class is node-local, not
-  networked). A real HA Postgres (Patroni, or a managed DB) is listed as a
-  Stretch item precisely because it's a genuinely different, harder problem.
+  networked -- true on GCP just as it was on the originally-planned Hetzner
+  setup). A real HA Postgres (Patroni, or a managed DB like Cloud SQL) is
+  listed as a Stretch item precisely because it's a genuinely different,
+  harder problem.
 - **Secrets are applied manually**, not through GitOps, until Sealed Secrets
   (Stretch) is done — see `manifests/base/secret.example.yaml`.

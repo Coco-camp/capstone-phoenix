@@ -2,13 +2,16 @@
 
 Capstone submission for `ts-a-devops/capstone-phoenix`. TaskApp
 (React/nginx + Flask/Postgres) running highly-available, autoscaling,
-zero-downtime, on a 3-node k3s cluster on Hetzner Cloud, behind HTTPS,
-entirely GitOps-owned via Argo CD.
+zero-downtime, on a 3-node k3s cluster on Google Cloud Platform, behind
+HTTPS, entirely GitOps-owned via Argo CD. (Originally scoped for Hetzner;
+switched to GCP since the published app images are amd64-only and GCP's
+free trial credit covers the full capstone window at $0 — see
+`docs/COST.md`.)
 
 ## Layout
 
 ```
-infra/terraform/   3-node Hetzner cluster: network, firewall, compute
+infra/terraform/   3-node GCP cluster: network, firewall, compute
 infra/ansible/     k3s bring-up: hardening, k3s server, k3s agent roles
 manifests/base/    all K8s resources (kustomize base)
 manifests/overlays/prod/   pinned image tags — the only file CI/you edit to ship

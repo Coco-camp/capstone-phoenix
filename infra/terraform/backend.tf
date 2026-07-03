@@ -1,29 +1,26 @@
 terraform {
   required_version = ">= 1.7"
 
-  # Remote state — Terraform Cloud's free tier, since we're on Hetzner (no AWS
-  # account required). This is the "or equivalent for your provider" option the
-  # capstone README calls out in place of S3 + DynamoDB.
+  # Remote state — Terraform Cloud's free tier. GCP has its own native
+  # remote-state option (a GCS bucket), which would also satisfy the
+  # capstone's "S3 + DynamoDB or equivalent" requirement, but Terraform
+  # Cloud is used here to keep state management decoupled from whichever
+  # cloud happens to host the compute -- if you ever migrate providers again,
+  # state storage doesn't move with it.
   #
   # Setup (one-time, do this before `terraform init`):
-  #   1. Create a free account at https://app.terraform.io
-  #   2. Create an organization (e.g. "collins-devops") and a workspace named
-  #      "capstone-phoenix" with execution mode "Local" (so `terraform apply`
-  #      still runs on your machine, TFC just stores state + locks it).
-  #   3. `terraform login` to store an API token locally.
-  #   4. Replace the organization name below.
+  #   1. Free account at https://app.terraform.io
+  #   2. Organization + workspace named "capstone-phoenix", execution mode
+  #      "Local" (state storage + locking only; apply still runs on your machine)
+  #   3. `terraform login` to store an API token locally
+  #   4. Replace the organization name below
   #
-  # If you'd rather use S3 + DynamoDB directly (e.g. you already have an AWS
-  # account), swap this block for:
-  #   backend "s3" {
-  #     bucket         = "collins-capstone-phoenix-tfstate"
-  #     key            = "capstone-phoenix/terraform.tfstate"
-  #     region         = "eu-central-1"
-  #     dynamodb_table = "capstone-phoenix-tf-lock"
-  #     encrypt        = true
+  # GCS-native alternative, if you'd rather keep everything in one cloud:
+  #   backend "gcs" {
+  #     bucket = "capstone-phoenix-tfstate"
+  #     prefix = "terraform/state"
   #   }
-  # Either way: this file, once filled in, is safe to commit — it holds no
-  # secrets, only where state lives.
+  #   (create the bucket first: gcloud storage buckets create gs://capstone-phoenix-tfstate --location=us-central1)
   cloud {
     organization = "CHANGE_ME_ORG"
 
@@ -33,13 +30,16 @@ terraform {
   }
 
   required_providers {
-    hcloud = {
-      source  = "hetznercloud/hcloud"
-      version = "~> 1.45"
+    google = {
+      source  = "hashicorp/google"
+      version = "~> 6.0"
     }
   }
 }
 
-provider "hcloud" {
-  token = var.hcloud_token
+provider "google" {
+  project     = var.gcp_project_id
+  region      = var.region
+  zone        = var.zone
+  credentials = file(var.gcp_credentials_file)
 }

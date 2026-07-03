@@ -1,58 +1,74 @@
 terraform {
   required_providers {
-    hcloud = {
-      source  = "hetznercloud/hcloud"
-      version = "~> 1.45"
+    google = {
+      source  = "hashicorp/google"
+      version = "~> 6.0"
     }
   }
 }
 
-resource "hcloud_ssh_key" "this" {
-  name       = "${var.cluster_name}-key"
-  public_key = var.ssh_public_key
+locals {
+  # GCP's metadata-based SSH key format is "username:public-key-content".
+  # This is what creates the "deploy" user automatically on first boot --
+  # no separate user-creation step needed like on Hetzner's bare images.
+  ssh_metadata = "deploy:${var.ssh_public_key}"
 }
 
-resource "hcloud_server" "control_plane" {
-  name        = "${var.cluster_name}-cp-1"
-  server_type = var.control_plane_type
-  image       = var.image
-  location    = var.location
-  ssh_keys    = [hcloud_ssh_key.this.id]
-  firewall_ids = [var.firewall_id]
+resource "google_compute_instance" "control_plane" {
+  name         = "${var.cluster_name}-cp-1"
+  machine_type = var.control_plane_machine_type
+  zone         = var.zone
+  tags         = [var.target_tag]
 
-  network {
-    network_id = var.network_id
-    ip         = var.control_plane_private_ip
+  boot_disk {
+    initialize_params {
+      image = var.image
+      size  = 20
+    }
+  }
+
+  network_interface {
+    subnetwork = var.subnet_name
+    network_ip = var.control_plane_private_ip
+    access_config {} # ephemeral public IP
+  }
+
+  metadata = {
+    ssh-keys = local.ssh_metadata
   }
 
   labels = {
     role    = "control-plane"
     cluster = var.cluster_name
   }
-
-  # Ensure the server only boots once it's attached to the private network,
-  # otherwise the private NIC can come up after cloud-init runs.
-  depends_on = [var.network_id]
 }
 
-resource "hcloud_server" "worker" {
-  count       = var.worker_count
-  name        = "${var.cluster_name}-worker-${count.index + 1}"
-  server_type = var.worker_type
-  image       = var.image
-  location    = var.location
-  ssh_keys    = [hcloud_ssh_key.this.id]
-  firewall_ids = [var.firewall_id]
+resource "google_compute_instance" "worker" {
+  count        = var.worker_count
+  name         = "${var.cluster_name}-worker-${count.index + 1}"
+  machine_type = var.worker_machine_type
+  zone         = var.zone
+  tags         = [var.target_tag]
 
-  network {
-    network_id = var.network_id
-    ip         = cidrhost(var.worker_ip_range, count.index + 10)
+  boot_disk {
+    initialize_params {
+      image = var.image
+      size  = 20
+    }
+  }
+
+  network_interface {
+    subnetwork = var.subnet_name
+    network_ip = cidrhost(var.worker_ip_range, count.index + 10)
+    access_config {}
+  }
+
+  metadata = {
+    ssh-keys = local.ssh_metadata
   }
 
   labels = {
     role    = "worker"
     cluster = var.cluster_name
   }
-
-  depends_on = [var.network_id]
 }

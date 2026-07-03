@@ -7,32 +7,36 @@ variable "ssh_public_key" {
   description = "Contents of your ~/.ssh/id_ed25519.pub"
 }
 
-variable "network_id" {
+variable "subnet_name" {
   type = string
 }
 
-variable "firewall_id" {
+variable "target_tag" {
   type = string
+}
+
+variable "zone" {
+  type    = string
+  default = "us-central1-a"
 }
 
 variable "image" {
   type    = string
-  default = "ubuntu-24.04"
+  default = "ubuntu-os-cloud/ubuntu-2404-lts-amd64"
 }
 
-variable "location" {
+# e2-medium (2 vCPU / 4GB) for control-plane -- it also runs Traefik,
+# cert-manager, and Argo CD alongside the k3s server, so it needs headroom.
+variable "control_plane_machine_type" {
   type    = string
-  default = "nbg1" # Nuremberg — cheapest EU zone
+  default = "e2-medium"
 }
 
-variable "control_plane_type" {
+# e2-small (2 vCPU / 2GB) for workers -- cheapest type that comfortably runs
+# 2+ app replicas per tier.
+variable "worker_machine_type" {
   type    = string
-  default = "cpx21" # 3 vCPU / 4GB — k3s server needs a bit more headroom
-}
-
-variable "worker_type" {
-  type    = string
-  default = "cpx11" # 2 vCPU / 2GB — cheapest usable worker
+  default = "e2-small"
 }
 
 variable "worker_count" {

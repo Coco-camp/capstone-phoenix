@@ -1,20 +1,20 @@
 terraform {
   required_providers {
-    hcloud = {
-      source  = "hetznercloud/hcloud"
-      version = "~> 1.45"
+    google = {
+      source  = "hashicorp/google"
+      version = "~> 6.0"
     }
   }
 }
 
-resource "hcloud_network" "this" {
-  name     = "${var.cluster_name}-network"
-  ip_range = var.ip_range
+resource "google_compute_network" "this" {
+  name                    = "${var.cluster_name}-vpc"
+  auto_create_subnetworks = false
 }
 
-resource "hcloud_network_subnet" "this" {
-  network_id   = hcloud_network.this.id
-  type         = "cloud"
-  network_zone = var.network_zone
-  ip_range     = var.subnet_range
+resource "google_compute_subnetwork" "this" {
+  name          = "${var.cluster_name}-subnet"
+  ip_cidr_range = var.subnet_range
+  region        = var.region
+  network       = google_compute_network.this.id
 }

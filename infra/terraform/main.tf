@@ -1,11 +1,14 @@
 module "network" {
   source       = "./modules/network"
   cluster_name = var.cluster_name
+  region       = var.region
 }
 
 module "firewall" {
   source        = "./modules/firewall"
   cluster_name  = var.cluster_name
+  network_name  = module.network.network_name
+  subnet_range  = "10.10.1.0/24"
   admin_ip_cidr = var.admin_ip_cidr
 }
 
@@ -13,31 +16,26 @@ module "compute" {
   source         = "./modules/compute"
   cluster_name   = var.cluster_name
   ssh_public_key = var.ssh_public_key
-  network_id     = module.network.network_id
-  firewall_id    = module.firewall.firewall_id
+  subnet_name    = module.network.subnet_name
+  target_tag     = module.firewall.target_tag
+  zone           = var.zone
   worker_count   = var.worker_count
-
-  depends_on = [module.network.subnet_id]
 }
 
-# Renders a ready-to-use Ansible inventory from Terraform outputs, so there's
-# never a manual copy/paste step of IPs between infra and cluster bring-up.
+# Renders a ready-to-use Ansible inventory from Terraform outputs.
 resource "local_file" "ansible_inventory" {
   filename = "${path.module}/../ansible/inventory/hosts.ini"
   content  = <<-EOT
-    # ansible_user=root because Hetzner Ubuntu images only have root by
-    # default. The hardening role creates a non-root "deploy" sudo user with
-    # key-only SSH for manual admin access, disables root SSH login, and
-    # disables password auth cluster-wide — Ansible orchestration itself
-    # continues over root's key since that's the only account that exists
-    # pre-hardening. See docs/RUNBOOK.md for manual login as "deploy" after
-    # the hardening role runs.
+    # ansible_user=deploy because the compute module injects an SSH key via
+    # GCP instance metadata in the form "deploy:<pubkey>", which auto-creates
+    # a sudo-enabled "deploy" user on first boot -- no separate bootstrap-as-
+    # root step needed like on providers that only ship a bare root account.
     [control_plane]
-    ${module.compute.control_plane_public_ip} private_ip=${module.compute.control_plane_private_ip} ansible_user=root
+    ${module.compute.control_plane_public_ip} private_ip=${module.compute.control_plane_private_ip} ansible_user=deploy
 
     [workers]
     %{ for idx, ip in module.compute.worker_public_ips ~}
-    ${ip} private_ip=${module.compute.worker_private_ips[idx]} ansible_user=root
+    ${ip} private_ip=${module.compute.worker_private_ips[idx]} ansible_user=deploy
     %{ endfor ~}
 
     [k3s_cluster:children]

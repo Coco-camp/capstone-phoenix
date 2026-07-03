@@ -1,56 +1,66 @@
 terraform {
   required_providers {
-    hcloud = {
-      source  = "hetznercloud/hcloud"
-      version = "~> 1.45"
+    google = {
+      source  = "hashicorp/google"
+      version = "~> 6.0"
     }
   }
 }
 
-# Least-privilege firewall: only 22 (admin IP), 80, 443 reachable from the internet.
-# The k3s API (6443) and node-to-node traffic (Flannel VXLAN 8472, kubelet 10250, etc.)
-# are ONLY allowed from inside the private network / between the nodes themselves,
-# never from 0.0.0.0/0.
+# Least-privilege firewall: only 22 (admin IP), 80, 443 reachable from the
+# internet. GCP firewalls are default-deny-ingress already (unlike AWS's
+# default-allow-within-VPC), so we only need to declare the allows — there's
+# no separate "deny all else" rule to write.
+#
+# The k3s API (6443) and node-to-node traffic (Flannel VXLAN 8472, kubelet
+# 10250, etc.) are only allowed from within this VPC's own subnet, never from
+# 0.0.0.0/0 — enforced by the allow-internal rule below being scoped to
+# source_ranges = [subnet_range], not the internet.
 
-resource "hcloud_firewall" "this" {
-  name = "${var.cluster_name}-fw"
+resource "google_compute_firewall" "ssh" {
+  name    = "${var.cluster_name}-allow-ssh"
+  network = var.network_name
 
-  # SSH — locked to the admin's IP only
-  rule {
-    direction  = "in"
-    protocol   = "tcp"
-    port       = "22"
-    source_ips = [var.admin_ip_cidr]
+  allow {
+    protocol = "tcp"
+    ports    = ["22"]
   }
 
-  # HTTP — needed for ACME HTTP-01 challenge + redirects
-  rule {
-    direction  = "in"
-    protocol   = "tcp"
-    port       = "80"
-    source_ips = ["0.0.0.0/0", "::/0"]
+  source_ranges = [var.admin_ip_cidr]
+  target_tags   = ["${var.cluster_name}-node"]
+}
+
+resource "google_compute_firewall" "http_https" {
+  name    = "${var.cluster_name}-allow-http-https"
+  network = var.network_name
+
+  allow {
+    protocol = "tcp"
+    ports    = ["80", "443"]
   }
 
-  # HTTPS — the app
-  rule {
-    direction  = "in"
-    protocol   = "tcp"
-    port       = "443"
-    source_ips = ["0.0.0.0/0", "::/0"]
+  source_ranges = ["0.0.0.0/0"]
+  target_tags   = ["${var.cluster_name}-node"]
+}
+
+resource "google_compute_firewall" "internal" {
+  name    = "${var.cluster_name}-allow-internal"
+  network = var.network_name
+
+  allow {
+    protocol = "tcp"
+    ports    = ["0-65535"]
+  }
+  allow {
+    protocol = "udp"
+    ports    = ["0-65535"]
+  }
+  allow {
+    protocol = "icmp"
   }
 
-  # ICMP for diagnostics from admin only
-  rule {
-    direction  = "in"
-    protocol   = "icmp"
-    source_ips = [var.admin_ip_cidr]
-  }
-
-  # NOTE: 6443 (k8s API), 8472 (flannel vxlan), 10250 (kubelet) are intentionally
-  # NOT opened here. Node-to-node cluster traffic travels over the private
-  # hcloud_network (10.10.0.0/16) attached in the compute module, which Hetzner
-  # firewalls do not filter by default for same-network traffic — but since these
-  # ports are simply absent from this ruleset, they are unreachable from the
-  # public internet entirely. Control-plane access from your laptop happens via
-  # an SSH tunnel (see docs/RUNBOOK.md), not a direct public 6443 rule.
+  # Only nodes in our own subnet — this is what keeps 6443/8472/10250 off
+  # the public internet while still letting cluster nodes talk to each other.
+  source_ranges = [var.subnet_range]
+  target_tags   = ["${var.cluster_name}-node"]
 }

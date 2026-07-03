@@ -1,7 +1,21 @@
-variable "hcloud_token" {
+variable "gcp_project_id" {
   type        = string
-  sensitive   = true
-  description = "Hetzner Cloud API token. Set via TF_VAR_hcloud_token env var — never commit it."
+  description = "Your GCP project ID, e.g. capstone-phoenix"
+}
+
+variable "gcp_credentials_file" {
+  type        = string
+  description = "Path to the service account JSON key, e.g. ~/.gcp/terraform-key.json"
+}
+
+variable "region" {
+  type    = string
+  default = "us-central1"
+}
+
+variable "zone" {
+  type    = string
+  default = "us-central1-a"
 }
 
 variable "cluster_name" {

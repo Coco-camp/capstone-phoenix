@@ -1,5 +1,5 @@
 output "control_plane_public_ip" {
-  value = hcloud_server.control_plane.ipv4_address
+  value = google_compute_instance.control_plane.network_interface[0].access_config[0].nat_ip
 }
 
 output "control_plane_private_ip" {
@@ -7,7 +7,7 @@ output "control_plane_private_ip" {
 }
 
 output "worker_public_ips" {
-  value = [for s in hcloud_server.worker : s.ipv4_address]
+  value = [for i in google_compute_instance.worker : i.network_interface[0].access_config[0].nat_ip]
 }
 
 output "worker_private_ips" {
@@ -15,5 +15,5 @@ output "worker_private_ips" {
 }
 
 output "worker_names" {
-  value = [for s in hcloud_server.worker : s.name]
+  value = [for i in google_compute_instance.worker : i.name]
 }

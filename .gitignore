@@ -21,6 +21,13 @@ kubeconfig*
 *.key
 !**/templates/*.key.j2
 
+# GCP service account keys
+*.json
+!package.json
+!package-lock.json
+!tsconfig.json
+terraform-key.json
+
 # SSH
 id_rsa
 id_ed25519
