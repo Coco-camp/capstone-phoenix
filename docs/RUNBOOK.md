@@ -103,7 +103,7 @@ helm install cert-manager jetstack/cert-manager \
 kubectl create namespace argocd
 helm install argocd argo/argo-cd --namespace argocd
 
-kubectl apply -f https://github.com/k3s-io/k3s/raw/master/manifests/metrics-server.yaml
+kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
 ```
 
 ## 5. First-time secret (manual, not GitOps -- see secret.example.yaml)
@@ -117,13 +117,30 @@ rm /tmp/secret.yaml
 
 ## 6. Point the manifests at your real image tags and domain
 
-```bash
-export SHA=$(git ls-remote https://github.com/ts-a-devops/taskapp-backend main | cut -c1-7)
+Images are pinned by digest (not a mutable tag) in
+`manifests/overlays/prod/kustomization.yaml` — get the current digest for
+any image with:
 
-sed -i "s/CHANGE_ME_PINNED_SHA/${SHA}/g" manifests/overlays/prod/kustomization.yaml
+```bash
+docker manifest inspect ghcr.io/ts-a-devops/taskapp-backend:latest
+# copy the amd64 entry's "digest" field (ignore any "unknown/unknown" attestation entry)
+```
+
+Then edit `manifests/overlays/prod/kustomization.yaml` directly (digests
+don't lend themselves to a one-line `sed` the way a placeholder string does):
+
+```yaml
+images:
+  - name: ghcr.io/ts-a-devops/taskapp-backend
+    digest: sha256:<paste digest here>
+  - name: ghcr.io/ts-a-devops/taskapp-frontend
+    digest: sha256:<paste digest here>
+```
+
+```bash
 sed -i "s/CHANGE_ME.taskapp.example.com/taskapp.<yourdomain>/g" manifests/base/ingress.yaml
 sed -i "s/CHANGE_ME@example.com/you@yourdomain/g" manifests/base/cluster-issuer.yaml
-sed -i "s#CHANGE_ME/capstone-phoenix#Coco-camp/capstone-phoenix#" gitops/application.yaml
+sed -i "s#CHANGE_ME/capstone-phoenix#<your-github-username>/capstone-phoenix#" gitops/application.yaml
 
 git add -A && git commit -m "Set real image tags, domain, repo URL" && git push
 ```

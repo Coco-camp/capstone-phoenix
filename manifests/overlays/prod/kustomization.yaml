@@ -4,14 +4,17 @@ kind: Kustomization
 resources:
   - ../../base
 
-# This is the ONE place image tags are bumped. CI (or you, manually, until
-# the Stretch CI goal is done) edits the `newTag` values below and pushes to
-# main — Argo CD picks up the commit and rolls out the new SHA. No other file
-# should ever reference `:latest`.
+# This is the ONE place image versions are bumped. Pinned by digest rather
+# than a tag (even a commit-SHA tag) since a digest is cryptographically
+# immutable -- it can never be silently repointed at a different image the
+# way any tag technically could be. CI (or you, manually, until the Stretch
+# CI goal is done) updates the digests below and pushes to main -- Argo CD
+# picks up the commit and rolls out the new image. No other file should ever
+# reference `:latest`.
 images:
   - name: ghcr.io/ts-a-devops/taskapp-backend
-    newTag: CHANGE_ME_PINNED_SHA
+    digest: sha256:1b1a175ad46d868607f51843c2bb91c3cfdeff5c9d77efad76b0cf4209f25706
   - name: ghcr.io/ts-a-devops/taskapp-frontend
-    newTag: CHANGE_ME_PINNED_SHA
+    digest: sha256:05a9b78302a07d572f40814b659e7fe738c9dc87d6e31a01372cad8c42d7273d
 
 namespace: taskapp
