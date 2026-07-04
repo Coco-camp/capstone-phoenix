@@ -22,7 +22,7 @@ terraform {
   #   }
   #   (create the bucket first: gcloud storage buckets create gs://capstone-phoenix-tfstate --location=us-central1)
   cloud {
-    organization = "CHANGE_ME_ORG"
+    organization = "coco-camp"
 
     workspaces {
       name = "capstone-phoenix"
@@ -33,6 +33,10 @@ terraform {
     google = {
       source  = "hashicorp/google"
       version = "~> 6.0"
+    }
+    local = {
+      source  = "hashicorp/local"
+      version = "~> 2.5"
     }
   }
 }

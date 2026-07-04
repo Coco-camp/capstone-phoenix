@@ -43,12 +43,3 @@ resource "local_file" "ansible_inventory" {
     workers
   EOT
 }
-
-terraform {
-  required_providers {
-    local = {
-      source  = "hashicorp/local"
-      version = "~> 2.5"
-    }
-  }
-}

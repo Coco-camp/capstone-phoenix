@@ -59,7 +59,7 @@ resource "google_compute_instance" "worker" {
 
   network_interface {
     subnetwork = var.subnet_name
-    network_ip = cidrhost(var.worker_ip_range, count.index + 10)
+    network_ip = cidrhost(var.worker_ip_range, count.index + 20)
     access_config {}
   }
 

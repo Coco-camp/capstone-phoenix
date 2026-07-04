@@ -11,7 +11,7 @@ output "worker_public_ips" {
 }
 
 output "worker_private_ips" {
-  value = [for i in range(var.worker_count) : cidrhost(var.worker_ip_range, i + 10)]
+  value = [for i in range(var.worker_count) : cidrhost(var.worker_ip_range, i + 20)]
 }
 
 output "worker_names" {

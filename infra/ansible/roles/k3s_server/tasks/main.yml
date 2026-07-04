@@ -13,7 +13,7 @@
     --node-ip={{ private_ip }}
     --advertise-address={{ private_ip }}
     --tls-san={{ ansible_host }}
-    --flannel-iface=eth1
+    --flannel-iface=ens4
     --write-kubeconfig-mode=644
     --disable=traefik=false
   args:

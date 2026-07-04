@@ -14,10 +14,10 @@ spec:
   ingressClassName: traefik
   tls:
     - hosts:
-        - CHANGE_ME.taskapp.example.com
+        - collins-phoenix.duckdns.org
       secretName: taskapp-tls
   rules:
-    - host: CHANGE_ME.taskapp.example.com
+    - host: collins-phoenix.duckdns.org
       http:
         paths:
           - path: /api
