@@ -16,12 +16,14 @@ spec:
       labels:
         app: postgres
     spec:
-      securityContext:
-        runAsNonRoot: true
-        runAsUser: 999
-        fsGroup: 999
-        seccompProfile:
-          type: RuntimeDefault
+      # NOTE: unlike backend/frontend (our own images, hardened fully), the
+      # official postgres image's own entrypoint needs to run as root
+      # briefly to chown/chmod its data dir and unix socket dir before it
+      # drops privileges internally -- forcing runAsNonRoot/runAsUser or
+      # dropping all capabilities here breaks that startup sequence with
+      # "chmod: /var/run/postgresql: Operation not permitted", confirmed
+      # during first deploy. Documented trade-off: this container starts as
+      # root then self-demotes, same as it would under plain Docker.
       containers:
         - name: postgres
           image: postgres:16.4-alpine
@@ -56,23 +58,19 @@ spec:
               memory: 512Mi
           readinessProbe:
             exec:
-              command: ["pg_isready", "-U", "$(POSTGRES_USER)", "-d", "taskapp"]
+              command: ["pg_isready", "-h", "127.0.0.1", "-U", "$(POSTGRES_USER)", "-d", "taskapp"]
             initialDelaySeconds: 5
             periodSeconds: 10
           livenessProbe:
             exec:
-              command: ["pg_isready", "-U", "$(POSTGRES_USER)", "-d", "taskapp"]
+              command: ["pg_isready", "-h", "127.0.0.1", "-U", "$(POSTGRES_USER)", "-d", "taskapp"]
             initialDelaySeconds: 15
             periodSeconds: 20
           startupProbe:
             exec:
-              command: ["pg_isready", "-U", "$(POSTGRES_USER)", "-d", "taskapp"]
+              command: ["pg_isready", "-h", "127.0.0.1", "-U", "$(POSTGRES_USER)", "-d", "taskapp"]
             failureThreshold: 30
             periodSeconds: 2
-          securityContext:
-            allowPrivilegeEscalation: false
-            capabilities:
-              drop: ["ALL"]
   volumeClaimTemplates:
     - metadata:
         name: postgres-storage

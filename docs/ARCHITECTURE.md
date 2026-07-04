@@ -91,3 +91,12 @@ Calico swap that makes these policies real rather than decorative YAML.
   harder problem.
 - **Secrets are applied manually**, not through GitOps, until Sealed Secrets
   (Stretch) is done — see `manifests/base/secret.example.yaml`.
+- **Postgres does not run the full securityContext hardening** applied to
+  backend/frontend (no forced `runAsNonRoot`/`runAsUser`, no capability
+  drop). The official `postgres:16-alpine` image's own entrypoint needs
+  brief root access to `chown`/`chmod` its data dir and unix socket before
+  it demotes itself internally — forcing non-root at the pod level broke
+  this with `chmod: /var/run/postgresql: Operation not permitted` and
+  startup-probe failures, confirmed during first deploy. This is the same
+  trust boundary the image has under plain Docker; backend/frontend (images
+  we control) keep full hardening since we know they don't need root at all.
