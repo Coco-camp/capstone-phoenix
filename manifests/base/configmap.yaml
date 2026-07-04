@@ -3,6 +3,8 @@ kind: ConfigMap
 metadata:
   name: taskapp-config
   namespace: taskapp
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
 data:
   POSTGRES_DB: "taskapp"
   POSTGRES_HOST: "postgres.taskapp.svc.cluster.local"

@@ -2,16 +2,25 @@
 # `alembic upgrade head` in each pod's entrypoint means both race on the same
 # migration lock/table. Instead migrations run exactly once, here, as a Job —
 # backend Deployment pods assume the schema is already current and never run
-# migrations themselves. Argo CD's PreSync hook re-runs this Job (a fresh Job
-# object, since Jobs are immutable) before every sync that changes the image.
+# migrations themselves.
+#
+# Ordered via Argo CD sync-wave (not a PreSync hook): hooks run in a phase
+# BEFORE any regular resource sync, so a PreSync-hook Job can never see a
+# ConfigMap/Secret that hasn't been created yet -- that was a real bug caught
+# during first deploy. Sync-wave keeps this as a normal resource that Argo
+# CD still sequences correctly: ConfigMap (-2) -> Postgres (-1) -> this Job
+# (0) -> backend/frontend (1), waiting for each wave to report Healthy
+# (for a Job, that means Completed) before moving to the next.
 apiVersion: batch/v1
 kind: Job
 metadata:
   name: taskapp-migrate
   namespace: taskapp
   annotations:
-    argocd.argoproj.io/hook: PreSync
-    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+    # Jobs are immutable once created -- a future digest bump can't be
+    # applied in-place. Replace=true tells Argo CD to delete and recreate
+    # the Job on each sync instead of failing on an immutable-field patch.
+    argocd.argoproj.io/sync-options: Replace=true
 spec:
   backoffLimit: 3
   template:
