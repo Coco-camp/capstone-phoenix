@@ -39,11 +39,16 @@ spec:
             - configMapRef:
                 name: taskapp-config
           env:
-            - name: DATABASE_URL
+            - name: DATABASE_USER
               valueFrom:
                 secretKeyRef:
                   name: taskapp-secret
-                  key: DATABASE_URL
+                  key: POSTGRES_USER
+            - name: DATABASE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: taskapp-secret
+                  key: POSTGRES_PASSWORD
           resources:
             requests:
               cpu: 50m

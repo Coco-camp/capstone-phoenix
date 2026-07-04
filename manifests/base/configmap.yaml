@@ -6,8 +6,13 @@ metadata:
   annotations:
     argocd.argoproj.io/sync-wave: "-2"
 data:
+  # Used by the official postgres container itself (postgres image convention)
   POSTGRES_DB: "taskapp"
-  POSTGRES_HOST: "postgres.taskapp.svc.cluster.local"
-  POSTGRES_PORT: "5432"
+  # Used by the app's migrations/env.py and Flask config -- confirmed by
+  # inspecting the actual image (get_database_url() reads these exact names,
+  # not a combined DATABASE_URL as originally assumed).
+  DATABASE_HOST: "postgres.taskapp.svc.cluster.local"
+  DATABASE_PORT: "5432"
+  DATABASE_NAME: "taskapp"
   FLASK_ENV: "production"
   API_BASE_PATH: "/api"
