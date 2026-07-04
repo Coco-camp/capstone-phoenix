@@ -58,6 +58,13 @@ resource "google_compute_firewall" "internal" {
   allow {
     protocol = "icmp"
   }
+  # Calico's default pod-to-pod encapsulation across nodes uses IP-in-IP,
+  # a distinct IP protocol (number 4) -- neither TCP nor UDP. Without this,
+  # traffic between pods on different nodes (including the API server's
+  # aggregation-layer calls to metrics-server) silently times out.
+  allow {
+    protocol = "ipip"
+  }
 
   # Only nodes in our own subnet — this is what keeps 6443/8472/10250 off
   # the public internet while still letting cluster nodes talk to each other.
