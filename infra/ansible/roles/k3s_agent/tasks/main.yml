@@ -12,7 +12,6 @@
     K3S_TOKEN={{ hostvars[groups['control_plane'][0]]['k3s_node_token'] }}
     sh -s - agent
     --node-ip={{ private_ip }}
-    --flannel-iface=ens4
   args:
     creates: /usr/local/bin/k3s
   when: not k3s_binary.stat.exists
