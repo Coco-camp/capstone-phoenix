@@ -16,18 +16,17 @@ kind: Job
 metadata:
   name: taskapp-migrate
   namespace: taskapp
-  annotations:
-    # Jobs are immutable once created -- a future digest bump can't be
-    # applied in-place. Replace=true tells Argo CD to delete and recreate
-    # the Job on each sync instead of failing on an immutable-field patch.
-    argocd.argoproj.io/sync-options: Replace=true
+  # NOTE: no Replace=true sync-option. It was tried and reverted -- once
+  # the Job actually runs, Kubernetes auto-adds a controller-uid label to
+  # the live object that isn't (and can't be) in this manifest, so every
+  # subsequent "replace" attempt failed validation, blocking ALL future
+  # syncs even when nothing needed to change. Plain `apply` (the default)
+  # tolerates that gracefully via a three-way merge. The real trade-off:
+  # Jobs are immutable, so if the image digest below ever changes, delete
+  # this Job manually first (`kubectl delete job -n taskapp taskapp-migrate`)
+  # before pushing the new digest -- documented in RUNBOOK.md.
 spec:
   backoffLimit: 3
-  # Explicit selector + pod labels: normally auto-filled by the API server
-  # on create, but a "replace" operation (which Replace=true sync-option
-  # uses) requires them to be present in the manifest itself, or it fails
-  # validation with "spec.selector: Required value" -- confirmed during
-  # first deploy attempt.
   selector:
     matchLabels:
       job-name: taskapp-migrate
