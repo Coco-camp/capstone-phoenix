@@ -77,24 +77,22 @@ Default-deny in `taskapp` namespace, then explicit allows:
 `frontend/backend` ← Traefik (kube-system) · `backend` ← `frontend` + the
 migration Job · `postgres` ← `backend` + the migration Job only.
 
-**Status: written, not currently enforced.** k3s's default CNI (Flannel)
-doesn't enforce `NetworkPolicy`; Calico was tried as a replacement CNI
-during this build specifically to make these policies real. It hit a
-reproducible GCP-specific bug: Calico's tunnel interfaces (`vxlan.calico`)
-retained stale IPAM addresses across multiple full, clean k3s reinstalls
-(confirmed by deleting the kernel interfaces directly and watching Calico
-recreate them with the *same* stale IP), which broke cross-node Service
-routing badly enough to deadlock Argo CD's own internal gRPC traffic
-between its `application-controller` and `repo-server` components — not
-just the app being deployed. After extensive isolation (confirmed direct
-pod-to-pod IP routing worked throughout; confirmed the specific failure
-was Service/ClusterIP-routed traffic; ruled out a pod-CIDR/kube-proxy
-mismatch by fixing it and retesting; tried both IPIP and VXLAN
-encapsulation modes), the decision was to revert to plain Flannel rather
-than keep sinking build time into one CNI swap. The NetworkPolicy
-manifests remain in `manifests/base/networkpolicy/` as a correct,
-ready-to-enforce design — they'd become active immediately on a
-successful CNI swap, with no changes needed to the policies themselves.
+**Status: enforced.** Calico was tried first as a policy-enforcing CNI
+replacement and hit a reproducible GCP-specific bug (Calico's tunnel
+interfaces retained stale IPAM state across multiple clean k3s reinstalls,
+breaking cross-node Service routing badly enough to deadlock Argo CD's own
+internal components). Rather than keep sinking build time into that CNI
+swap, k3s's actual default networking was checked properly: k3s bundles a
+lightweight `kube-router`-based NetworkPolicy controller *by default*
+alongside Flannel (confirmed via `iptables -L FORWARD`, showing
+`KUBE-ROUTER-FORWARD` chains actively filtering traffic) — no CNI swap was
+ever actually required. Once that was confirmed, the previously-untested
+policies immediately surfaced a real bug of their own: `default-deny-all`
+blocks all egress except DNS by default, and the migration Job's egress to
+Postgres was never explicitly granted (only Postgres's *ingress* from the
+Job was) — NetworkPolicy requires both sides to permit traffic. Fixed with
+`allow-migration-egress.yaml`. End state: NetworkPolicy enforced on plain
+Flannel, no Calico needed, one real policy gap found and closed.
 
 ## 5. Trade-offs (worth stating up front)
 

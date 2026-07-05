@@ -1,0 +1,33 @@
+# The migration Job's pod is subject to default-deny-all's blanket egress
+# deny (DNS only). allow-postgres-from-backend.yaml grants Postgres
+# permission to *receive* from this Job, but NetworkPolicy requires BOTH
+# sides to permit traffic -- the Job's pod also needs explicit permission to
+# *send* to Postgres. Missing this was a real bug caught during first deploy
+# (confirmed via k3s's bundled kube-router NetworkPolicy enforcer, which
+# turned out to work on plain Flannel all along -- see ARCHITECTURE.md).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-migration-egress-to-postgres
+  namespace: taskapp
+spec:
+  podSelector:
+    matchLabels:
+      job-name: taskapp-migrate
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app: postgres
+      ports:
+        - protocol: TCP
+          port: 5432
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53

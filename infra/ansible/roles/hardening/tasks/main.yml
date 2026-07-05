@@ -57,10 +57,21 @@
     - "80"
     - "443"
 
+- name: Set ufw default forward policy to ACCEPT (required for k8s pod routing)
+  ansible.builtin.lineinfile:
+    path: /etc/default/ufw
+    regexp: '^DEFAULT_FORWARD_POLICY='
+    line: 'DEFAULT_FORWARD_POLICY="ACCEPT"'
+
 - name: Allow all traffic within the private cluster network
   community.general.ufw:
     rule: allow
     src: "10.10.0.0/16"
+
+- name: Allow all traffic within the pod network (k3s/Flannel default CIDR)
+  community.general.ufw:
+    rule: allow
+    src: "10.42.0.0/16"
 
 - name: Enable ufw
   community.general.ufw:
