@@ -76,18 +76,19 @@ kubectl get nodes -o wide
 > `ssh -L 6443:127.0.0.1:6443 deploy@<control-plane-ip>` then point
 > `KUBECONFIG`'s server at `https://127.0.0.1:6443`.
 
-## 3. Swap Flannel for a policy-enforcing CNI (Calico)
+## 3. CNI: plain Flannel (Calico attempted, reverted -- see ARCHITECTURE.md)
 
-k3s's default CNI doesn't enforce `NetworkPolicy`. Two options -- pick one and
-note your choice in `docs/ARCHITECTURE.md`:
-
-- **Simplest:** re-run the k3s install with `--flannel-backend=none`
-  (edit `infra/ansible/roles/k3s_server/tasks/main.yml`), then:
-  ```bash
-  kubectl create -f https://raw.githubusercontent.com/projectcalico/calico/v3.28.0/manifests/calico.yaml
-  ```
-- **Or:** keep Flannel and layer Calico in policy-only mode
-  (`calico.yaml` with `CALICO_NETWORKING_BACKEND=none`).
+k3s's default CNI (Flannel) doesn't enforce `NetworkPolicy`. Calico was
+tried as a policy-enforcing replacement during this build, but hit a
+persistent GCP-specific networking bug (Calico's VXLAN/IPIP tunnel
+interfaces retained stale IPAM state across multiple clean k3s
+reinstalls, breaking cross-node Service routing for gRPC-heavy traffic
+like Argo CD's own internal components) that wasn't resolved within a
+reasonable time budget. Decision: stay on plain Flannel, keep the
+`NetworkPolicy` manifests in the repo as documentation of intent (see
+`manifests/base/networkpolicy/`), and note honestly in `docs/ARCHITECTURE.md`
+that they are not currently enforced. This trades one Advanced-category
+checkbox for actually shipping the Core app and GitOps on schedule.
 
 ## 4. Install platform tooling
 

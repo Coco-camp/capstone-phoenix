@@ -75,9 +75,26 @@ need no CORS configuration and there's one cert/Ingress object instead of two.
 
 Default-deny in `taskapp` namespace, then explicit allows:
 `frontend/backend` ← Traefik (kube-system) · `backend` ← `frontend` + the
-migration Job · `postgres` ← `backend` + the migration Job only. k3s's default
-CNI (Flannel) does not enforce `NetworkPolicy` — see `docs/RUNBOOK.md` for the
-Calico swap that makes these policies real rather than decorative YAML.
+migration Job · `postgres` ← `backend` + the migration Job only.
+
+**Status: written, not currently enforced.** k3s's default CNI (Flannel)
+doesn't enforce `NetworkPolicy`; Calico was tried as a replacement CNI
+during this build specifically to make these policies real. It hit a
+reproducible GCP-specific bug: Calico's tunnel interfaces (`vxlan.calico`)
+retained stale IPAM addresses across multiple full, clean k3s reinstalls
+(confirmed by deleting the kernel interfaces directly and watching Calico
+recreate them with the *same* stale IP), which broke cross-node Service
+routing badly enough to deadlock Argo CD's own internal gRPC traffic
+between its `application-controller` and `repo-server` components — not
+just the app being deployed. After extensive isolation (confirmed direct
+pod-to-pod IP routing worked throughout; confirmed the specific failure
+was Service/ClusterIP-routed traffic; ruled out a pod-CIDR/kube-proxy
+mismatch by fixing it and retesting; tried both IPIP and VXLAN
+encapsulation modes), the decision was to revert to plain Flannel rather
+than keep sinking build time into one CNI swap. The NetworkPolicy
+manifests remain in `manifests/base/networkpolicy/` as a correct,
+ready-to-enforce design — they'd become active immediately on a
+successful CNI swap, with no changes needed to the policies themselves.
 
 ## 5. Trade-offs (worth stating up front)
 

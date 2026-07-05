@@ -34,7 +34,10 @@ GitOps-managed cluster.
 - [ ] Real image tags + domain substituted, pushed
 - [ ] `gitops/application.yaml` applied — Argo CD Synced + Healthy
 - [ ] Core §4 checklist (README) — all boxes demonstrated
-- [ ] ≥3 Advanced items — HPA, NetworkPolicy, PDB done above; pick a 3rd
+- [ ] ≥3 Advanced items — HPA + PDB/securityContext done and working;
+      NetworkPolicy manifests written but not enforced (Flannel doesn't
+      enforce them; Calico attempted, hit a GCP-specific bug, reverted —
+      see ARCHITECTURE.md §4). Need a 3rd real Advanced item.
       (observability dashboard is the natural next one — see below)
 - [ ] `docs/EVIDENCE/` filled with screenshots
 - [ ] Live failover demo rehearsed
@@ -42,17 +45,19 @@ GitOps-managed cluster.
 ## What's scaffolded vs. what's still yours to do
 
 **Scaffolded (this commit):** all Terraform/Ansible/manifests described
-above, Core §4 fully covered, 3 of the Advanced items (HPA, NetworkPolicy,
-PDB + securityContext), GitOps wiring.
+above, Core §4 fully covered, 2 solid Advanced items working (HPA, PDB +
+securityContext hardening on backend/frontend). NetworkPolicy manifests
+exist but aren't enforced (documented trade-off — see ARCHITECTURE.md),
+GitOps wiring in place.
 
 **Still needed from you:**
 1. A domain (any registrar) pointed at the control-plane IP.
 2. Your actual `taskapp-backend` / `taskapp-frontend` image SHAs.
 3. Run through `docs/RUNBOOK.md` end to end — some values are `CHANGE_ME`
    placeholders by design, so this **will not** apply cleanly until you do.
-4. Pick + implement a 3rd/4th Advanced item if you want the distinction
-   buffer — observability (kube-prometheus-stack) is the natural pick since
-   metrics-server is already installed in the runbook.
+4. Pick + implement a real 3rd Advanced item — observability
+   (kube-prometheus-stack) is the natural pick since metrics-server is
+   already installed in the runbook.
 5. `docs/EVIDENCE/` screenshots and the live demo.
 
 See `docs/ARCHITECTURE.md` for the "why" behind every design choice, and
