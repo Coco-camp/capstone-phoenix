@@ -23,7 +23,18 @@ metadata:
     argocd.argoproj.io/sync-options: Replace=true
 spec:
   backoffLimit: 3
+  # Explicit selector + pod labels: normally auto-filled by the API server
+  # on create, but a "replace" operation (which Replace=true sync-option
+  # uses) requires them to be present in the manifest itself, or it fails
+  # validation with "spec.selector: Required value" -- confirmed during
+  # first deploy attempt.
+  selector:
+    matchLabels:
+      job-name: taskapp-migrate
   template:
+    metadata:
+      labels:
+        job-name: taskapp-migrate
     spec:
       restartPolicy: Never
       securityContext:
