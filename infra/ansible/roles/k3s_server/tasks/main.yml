@@ -14,7 +14,7 @@
     --advertise-address={{ private_ip }}
     --tls-san={{ ansible_host }}
     --flannel-backend=none
-    --cluster-cidr=192.168.0.0/16
+    --cluster-cidr=172.16.0.0/16
     --disable-network-policy
     --write-kubeconfig-mode=644
     --disable=traefik=false
