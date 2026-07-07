@@ -20,6 +20,13 @@ spec:
     server: https://kubernetes.default.svc
     namespace: taskapp
 
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      name: backend
+      jsonPointers:
+        - /spec/replicas
+
   syncPolicy:
     automated:
       prune: true # delete resources removed from git
