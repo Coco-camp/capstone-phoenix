@@ -41,6 +41,10 @@ spec:
           ports:
             - containerPort: 80
               name: http
+          lifecycle:
+            preStop:
+              exec:
+                command: ["sleep", "5"]
           resources:
             requests:
               cpu: 50m

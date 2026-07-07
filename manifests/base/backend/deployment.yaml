@@ -60,6 +60,16 @@ spec:
                 secretKeyRef:
                   name: taskapp-secret
                   key: SECRET_KEY
+          # Without this, ~2% of requests get a 502 during a rollout: the
+          # pod stops accepting connections on SIGTERM before Kubernetes
+          # finishes removing it from the Service's endpoint list across
+          # kube-proxy/Traefik. This delay gives that propagation time to
+          # complete first. Confirmed as a real gap with a load test during
+          # a live rollout (66/3276 requests failed before this fix).
+          lifecycle:
+            preStop:
+              exec:
+                command: ["sleep", "10"]
           resources:
             requests:
               cpu: 100m
