@@ -39,7 +39,7 @@ spec:
         - name: frontend
           image: ghcr.io/ts-a-devops/taskapp-frontend:CHANGE_ME_PINNED_SHA
           ports:
-            - containerPort: 8080
+            - containerPort: 80
               name: http
           resources:
             requests:
@@ -51,19 +51,19 @@ spec:
           readinessProbe:
             httpGet:
               path: /healthz
-              port: 8080
+              port: 80
             initialDelaySeconds: 3
             periodSeconds: 10
           livenessProbe:
             httpGet:
               path: /healthz
-              port: 8080
+              port: 80
             initialDelaySeconds: 10
             periodSeconds: 20
           startupProbe:
             httpGet:
               path: /healthz
-              port: 8080
+              port: 80
             failureThreshold: 15
             periodSeconds: 2
           securityContext:
