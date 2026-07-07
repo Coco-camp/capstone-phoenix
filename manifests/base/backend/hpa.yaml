@@ -3,6 +3,13 @@ kind: HorizontalPodAutoscaler
 metadata:
   name: backend
   namespace: taskapp
+  annotations:
+    # Must sync in the same wave as (or after) the backend Deployment --
+    # HPA needs the Deployment's scale subresource to exist, or it fails
+    # with "deployments/scale.apps backend not found". Confirmed as a real
+    # bug during first deploy: HPA defaulted to wave 0, tried to attach
+    # before the wave-1 Deployment was created.
+    argocd.argoproj.io/sync-wave: "1"
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
