@@ -20,6 +20,7 @@ resources:
   - networkpolicy/allow-postgres-from-backend.yaml
   - networkpolicy/allow-backend-ingress.yaml
   - networkpolicy/allow-migration-egress.yaml
+  - networkpolicy/allow-acme-solver.yaml
 
 # NOTE: secret.yaml is intentionally NOT listed here — see secret.example.yaml
 # for why. Apply it manually once per cluster, outside of GitOps, until the
