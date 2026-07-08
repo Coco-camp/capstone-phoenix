@@ -1,0 +1,45 @@
+Proof: Postgres data survives a Pod delete
+=============================================
+
+1. Confirmed tasks table exists (created by migration Job):
+   $ kubectl exec -n taskapp postgres-0 -- psql -U taskapp -d taskapp -c "\dt"
+                Schema |      Name       | Type  |  Owner
+   -------------------+-----------------+-------+---------
+    public | alembic_version | table | taskapp
+    public | tasks           | table | taskapp
+    public | users           | table | taskapp
+
+2. Inserted a test row:
+   $ kubectl exec -n taskapp postgres-0 -- psql -U taskapp -d taskapp -c \
+       "INSERT INTO tasks (title, priority, status) VALUES ('capstone-persistence-test', 'high', 'pending');"
+   INSERT 0 1
+
+3. Verified it exists (BEFORE):
+   $ kubectl exec -n taskapp postgres-0 -- psql -U taskapp -d taskapp -c \
+       "SELECT * FROM tasks WHERE title='capstone-persistence-test';"
+    id |           title           | description | priority | status  | created_at | updated_at
+   ----+---------------------------+-------------+----------+---------+------------+------------
+     1 | capstone-persistence-test |             | high     | pending |            |
+   (1 row)
+
+4. Deleted the Postgres pod:
+   $ kubectl delete pod postgres-0 -n taskapp
+   pod "postgres-0" deleted from taskapp namespace
+
+5. Confirmed pod restarted cleanly:
+   $ kubectl get pod postgres-0 -n taskapp
+   NAME         READY   STATUS    RESTARTS   AGE
+   postgres-0   1/1     Running   0          5m4s
+
+6. Verified data still exists (AFTER):
+   $ kubectl exec -n taskapp postgres-0 -- psql -U taskapp -d taskapp -c \
+       "SELECT * FROM tasks WHERE title='capstone-persistence-test';"
+    id |           title           | description | priority | status  | created_at | updated_at
+   ----+---------------------------+-------------+----------+---------+------------+------------
+     1 | capstone-persistence-test |             | high     | pending |            |
+
+   (1 row)
+
+Result: same row (id=1), fully intact after the Pod was deleted and
+recreated -- confirms the PVC provides genuine persistent storage, not
+ephemeral pod-local storage.

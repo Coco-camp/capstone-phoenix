@@ -1,0 +1,17 @@
+Proof: HPA scaling under real load
+====================================
+
+Observed during normal operation (memory usage exceeded the 75% target
+after the app had been running under organic + load-test traffic):
+
+$ kubectl get hpa -n taskapp
+NAME      REFERENCE            TARGETS                          MINPODS   MAXPODS   REPLICAS   AGE
+backend   Deployment/backend   cpu: 1%/60%, memory: 123%/75%    2         6         6          2d3h
+
+- memory usage at 123% of the 75% target triggered the HPA to scale
+  backend from its baseline 2 replicas up to the configured maximum of 6.
+- Confirms HorizontalPodAutoscaler is live and reacting to real resource
+  pressure, not just present as unused YAML.
+- See also docs/EVIDENCE/zero-downtime-rollout.log for a rolling update
+  performed while the Deployment was scaled to 6 replicas (HPA-managed),
+  proving the rollout logic and HPA interact correctly together.
